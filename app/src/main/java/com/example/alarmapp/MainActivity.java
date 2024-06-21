@@ -1,7 +1,6 @@
 package com.example.alarmapp;
 
 import androidx.appcompat.app.AppCompatActivity;
-
 import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.os.Bundle;
@@ -10,109 +9,136 @@ import android.provider.AlarmClock;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.TimePicker;
 import android.widget.Toast;
 
+import com.example.alarmapp.R;
+
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
-    EditText timeHour;
-    EditText timeMinute;
-    Button setTime;
-    Button setAlarm;
-    TimePickerDialog timePickerDialog;
-    Calendar calendar;
-    int currentHour;
-    int currentMinute;
+    private TextView timeTextView;
+    private EditText timeHour;
+    private EditText timeMinute;
+    private Button setTime;
+    private Button setAlarm;
+    private Handler handler;
+    private Runnable runnable;
+    private TimePickerDialog timePickerDialog;
+    private Calendar calendar;
+    private int currentHour;
+    private int currentMinute;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // Initialize the views
+        timeTextView = findViewById(R.id.timeTextView);
         timeHour = findViewById(R.id.etHour);
         timeMinute = findViewById(R.id.etMinute);
         setTime = findViewById(R.id.btnTime);
         setAlarm = findViewById(R.id.btnAlarm);
 
-        setTime.setOnClickListener((v) -> {
-            calendar = Calendar.getInstance();
-            currentHour = calendar.get(Calendar.HOUR_OF_DAY);
-            currentMinute = calendar.get(Calendar.MINUTE);
+        // Set up the handler for updating the time
+        handler = new Handler();
+        runnable = new Runnable() {
+            @Override
+            public void run() {
+                updateTime();
+                handler.postDelayed(this, 1000);
+            }
+        };
+        handler.post(runnable);
 
-            timePickerDialog = new TimePickerDialog(MainActivity.this, new TimePickerDialog.OnTimeSetListener() {
-                @Override
-                public void onTimeSet(TimePicker timePicker, int hourOfDay, int minutes) {
-                    timeHour.setText(String.format("%02d", hourOfDay));
-                    timeMinute.setText(String.format("%02d", minutes));
-                }
-            }, currentHour, currentMinute, false);
+        // Set up the time picker dialog
+        setTime.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                calendar = Calendar.getInstance();
+                currentHour = calendar.get(Calendar.HOUR_OF_DAY);
+                currentMinute = calendar.get(Calendar.MINUTE);
 
-            timePickerDialog.show();
+                timePickerDialog = new TimePickerDialog(MainActivity.this, new TimePickerDialog.OnTimeSetListener() {
+                    @Override
+                    public void onTimeSet(TimePicker timePicker, int hourOfDay, int minutes) {
+                        timeHour.setText(String.format("%02d", hourOfDay));
+                        timeMinute.setText(String.format("%02d", minutes));
+                    }
+                }, currentHour, currentMinute, false);
+
+                timePickerDialog.show();
+            }
         });
 
+        // Set up the alarm button
         setAlarm.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(!timeHour.getText().toString().isEmpty() && !timeMinute.getText().toString().isEmpty()){
+                if (!timeHour.getText().toString().isEmpty() && !timeMinute.getText().toString().isEmpty()) {
+                    int hour = Integer.parseInt(timeHour.getText().toString());
+                    int minute = Integer.parseInt(timeMinute.getText().toString());
 
-
-//-------------------------1st Alarm---------------------------------------
-                    Intent intent = new Intent(AlarmClock.ACTION_SET_ALARM);
-                    intent.putExtra(AlarmClock.EXTRA_HOUR, Integer.parseInt(timeHour.getText().toString()));
-                    intent.putExtra(AlarmClock.EXTRA_MINUTES, Integer.parseInt(timeMinute.getText().toString()));
-                    intent.putExtra(AlarmClock.EXTRA_MESSAGE, "1st Alarm");
-//--------------------------End----------------------------------------------
-
-//-------------------------2nd Alarm---------------------------------------
-                    Intent intent2 = new Intent(AlarmClock.ACTION_SET_ALARM);
-                    //If it is 7pm, simply put 19
-                    //intent2.putExtra(AlarmClock.EXTRA_HOUR, 19);
-                    intent2.putExtra(AlarmClock.EXTRA_HOUR, Integer.parseInt(timeHour.getText().toString()));
-
-                    //If it is 7:20pm, simply put 20
-                    //intent2.putExtra(AlarmClock.EXTRA_MINUTES, 20);
-                    intent2.putExtra(AlarmClock.EXTRA_MINUTES, Integer.parseInt(timeMinute.getText().toString())+5);
-
-                    intent2.putExtra(AlarmClock.EXTRA_MESSAGE, "2nd alarm");
-//--------------------------End----------------------------------------------
-
-//-------------------------3rd Alarm---------------------------------------
-                    Intent intent3 = new Intent(AlarmClock.ACTION_SET_ALARM);
-                    intent3.putExtra(AlarmClock.EXTRA_HOUR, Integer.parseInt(timeHour.getText().toString()));
-                    intent3.putExtra(AlarmClock.EXTRA_MINUTES, Integer.parseInt(timeMinute.getText().toString())+10);
-                    intent3.putExtra(AlarmClock.EXTRA_MESSAGE, "3rd alarm");
-//--------------------------End----------------------------------------------
-
-                    if(intent.resolveActivity(getPackageManager()) != null) {
-                        startActivity(intent);
-                        finish();
-
-                        final Handler handler2 = new Handler();
-                        handler2.postDelayed(new Runnable() {
-                            @Override
-                            public void run() {
-                                startActivity(intent2);
-                                finish();
-                            }
-                        }, 300);
-
-                        final Handler handler3 = new Handler();
-                        handler3.postDelayed(new Runnable() {
-                            @Override
-                            public void run() {
-                                startActivity(intent3);
-                                finish();
-                            }
-                        }, 700);
-
-                    }else{
-                        Toast.makeText(MainActivity.this, "There is no app that support this action", Toast.LENGTH_SHORT).show();
-                    }
-                }else{
-                    Toast.makeText(MainActivity.this,"Please choose a time", Toast.LENGTH_SHORT).show();
+                    // Set multiple alarms
+                    setMultipleAlarms(hour, minute);
+                } else {
+                    Toast.makeText(MainActivity.this, "Please choose a time", Toast.LENGTH_SHORT).show();
                 }
             }
         });
+    }
+
+    private void updateTime() {
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
+        String currentTime = sdf.format(new Date());
+        timeTextView.setText(currentTime);
+    }
+
+    private void setMultipleAlarms(int hour, int minute) {
+        Intent intent1 = createAlarmIntent(hour, minute, "1st Alarm");
+        Intent intent2 = createAlarmIntent(hour, minute + 5, "2nd Alarm");
+        Intent intent3 = createAlarmIntent(hour, minute + 10, "3rd Alarm");
+
+        if (intent1.resolveActivity(getPackageManager()) != null) {
+            startActivity(intent1);
+
+            final Handler handler2 = new Handler();
+            handler2.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    startActivity(intent2);
+                }
+            }, 300);
+
+            final Handler handler3 = new Handler();
+            handler3.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    startActivity(intent3);
+                }
+            }, 700);
+        } else {
+            Toast.makeText(this, "There is no app that supports this action", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private Intent createAlarmIntent(int hour, int minute, String message) {
+        Intent intent = new Intent(AlarmClock.ACTION_SET_ALARM);
+        intent.putExtra(AlarmClock.EXTRA_HOUR, hour);
+        intent.putExtra(AlarmClock.EXTRA_MINUTES, minute);
+        intent.putExtra(AlarmClock.EXTRA_MESSAGE, message);
+        return intent;
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        handler.removeCallbacks(runnable);
     }
 }
